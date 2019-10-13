@@ -19,11 +19,9 @@ object ConsumerMain extends IOApp {
         .using(consumerSettings)
         .evalTap(_.subscribeTo(topicName))
         .flatMap(_.stream)
-        .mapAsync(25) { committable =>
-          commit(committable)
-        }
+        .mapAsync(25)(commit)
         .through(produce(producerSettings))
-        .map(producerResult => producerResult.passthrough)
+        .map(passingThrough)
         .through(commitBatchWithin(500, 15.seconds))
 
     println("Draining stream")
@@ -31,6 +29,10 @@ object ConsumerMain extends IOApp {
     println("Done.")
 
     result
+  }
+
+  private def passingThrough(producerResult: ProducerResult[String, String, CommittableOffset[IO]]): CommittableOffset[IO] = {
+    producerResult.passthrough
   }
 
   private def commit(committable: CommittableConsumerRecord[IO, String, String]): IO[ProducerRecords[String, String, CommittableOffset[IO]]] = {
