@@ -5,6 +5,8 @@ import fs2.kafka.{AutoOffsetReset, ConsumerSettings, Deserializer, ProducerSetti
 
 object Settings {
 
+  val topicName = "test2"
+
   val port = 9092
 
   val byteDeserializer = Deserializer.lift(bytes => IO.pure(if (bytes == null) "" else new String(bytes.dropWhile(_ == 0))))

@@ -14,15 +14,32 @@ object ProducerMain  extends IOApp {
       producerStream[IO]
         .using(producerSettings)
         .flatMap { producer =>
-          println(s"flatMap")
-          val record = ProducerRecord("topic", "key", "value")
-          val io = producer.produce(ProducerRecords.one(record, 0L))
-          println(s"produced = $io")
-          fs2.Stream.apply(io)
+          println(s"producer = $producer")
+          consumerStream[IO]
+            .using(consumerSettings)
+            .evalTap { kafkaConsumer =>
+              println(s"kafkaConsumer = $kafkaConsumer")
+              kafkaConsumer.subscribeTo(topicName)
+            }
+            .flatMap { kafkaConsumer =>
+              println(s"kafkaConsumer = $kafkaConsumer")
+              kafkaConsumer.partitionedStream
+            }
+            .map { partition =>
+              println(s"partition = $partition")
+              partition
+                .map { committable =>
+                  println(s"committable = $committable")
+                  val key = committable.record.key
+                  val value = committable.record.value
+                  val record = ProducerRecord("topic", key, value)
+                  ProducerRecords.one(record, committable.offset)
+                }
+                .through(produce(producerSettings, producer))
+            }
+            .parJoinUnbounded
         }
-    println("About to drain...")
-    val result = pStream.compile.drain.as(ExitCode.Success)
-    println("Finished draining.")
-    result
+
+    pStream.compile.drain.as(ExitCode.Success)
   }
 }
