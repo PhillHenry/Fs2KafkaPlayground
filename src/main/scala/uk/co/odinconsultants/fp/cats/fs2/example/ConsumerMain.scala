@@ -9,9 +9,10 @@ object ConsumerMain extends IOApp {
 
   import Settings._
 
+  def processRecord(record: ConsumerRecord[String, String]): IO[(String, String)] =
+    IO.pure(record.key -> record.value)
+
   override def run(args: List[String]): IO[ExitCode] = {
-    def processRecord(record: ConsumerRecord[String, String]): IO[(String, String)] =
-      IO.pure(record.key -> record.value)
 
     val cStream =
       consumerStream[IO]
@@ -19,16 +20,10 @@ object ConsumerMain extends IOApp {
         .evalTap(_.subscribeTo(topicName))
         .flatMap(_.stream)
         .mapAsync(25) { committable =>
-          println(s"committable = $committable")
-          processRecord(committable.record)
-            .map { case (key, value) =>
-              val record = ProducerRecord("topic", key, value)
-              println(s"record = $record")
-              ProducerRecords.one(record, committable.offset)
-            }
+          commit(committable)
         }
         .through(produce(producerSettings))
-        .map(_.passthrough)
+        .map(producerResult => producerResult.passthrough)
         .through(commitBatchWithin(500, 15.seconds))
 
     println("Draining stream")
@@ -36,5 +31,15 @@ object ConsumerMain extends IOApp {
     println("Done.")
 
     result
+  }
+
+  private def commit(committable: CommittableConsumerRecord[IO, String, String]): IO[ProducerRecords[String, String, CommittableOffset[IO]]] = {
+    println(s"committable = $committable")
+    val io: IO[(String, String)] = processRecord(committable.record)
+    io.map { case (key, value) =>
+      val record = ProducerRecord("topic", key, value)
+      println(s"record = $record")
+      ProducerRecords.one(record, committable.offset)
+    }
   }
 }

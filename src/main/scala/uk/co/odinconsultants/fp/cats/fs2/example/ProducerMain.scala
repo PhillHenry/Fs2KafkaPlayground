@@ -30,9 +30,9 @@ object ProducerMain  extends IOApp {
               partition
                 .map { committable =>
                   println(s"committable = $committable")
-                  val key = committable.record.key
-                  val value = committable.record.value
-                  val record = ProducerRecord("topic", key, value)
+                  val key     = committable.record.key
+                  val value   = committable.record.value
+                  val record  = ProducerRecord(topicName, key, value)
                   ProducerRecords.one(record, committable.offset)
                 }
                 .through(produce(producerSettings, producer))
