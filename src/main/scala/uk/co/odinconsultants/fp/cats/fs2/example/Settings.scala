@@ -11,7 +11,7 @@ object Settings {
 
   val byteDeserializer = Deserializer.lift(bytes => IO.pure(if (bytes == null) "" else new String(bytes.dropWhile(_ == 0))))
 
-  val consumerSettings =
+  val consumerSettings: ConsumerSettings[IO, String, String] =
     ConsumerSettings[IO, String, String](
       keyDeserializer = byteDeserializer,
       valueDeserializer = byteDeserializer
